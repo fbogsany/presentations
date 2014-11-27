@@ -1,0 +1,145 @@
+GothamGo Conference recap
+27 Nov 2014
+Tags: go, conference
+
+Francis Bogsanyi
+ #webscale, Shopify
+francis.bogsanyi@shopify.com
+@fbogsany
+
+* 1 day Go conference in NYC
+
+12 speakers, 3 Googlers
+
+Generally not Go experts (except Googlers), but most had something interesting to say
+
+.image gothamgo_header.jpg
+
+.link http://gothamgo.com
+.link http://www.twitter.com/gothamgo @gothamgo
+
+* Things I Learnt Teaching Go - Francesc Campoy (Google)
+
+"Go is not your other favourite language"
+
+False friends
+
+- "I caught a cold" - _English_
+- "estoy constipado" - _Spanish_
+- "je suis ..." - _Spanish_exchange_student_in_France_
+
+* Error Handling in Go - William Kennedy
+
+Also mistake #2 in _7_Common_mistakes_in_Go_and_how_to_avoid_them_ - Steve Francia
+
+Common error pattern (see Genghis):
+
+  if err != nil {
+      return _, fmt.Errorf("I just called foo; err=%v", err)
+  }
+
+Only reasonable action: log and continue or return
+
+Think instead about actionable errors - what can the caller do with this information?
+
+Leads to two common patterns
+
+* Actionable errors with exported error variables
+
+  var (
+      EOF               = errors.New("EOF")
+      ErrClosedPipe     = errors.New("io: read/write on closed pipe")
+      ErrNoProgress     = errors.New("multiple Read calls return no data or error")
+      ErrShortBuffer    = errors.New("short buffer")
+      ErrShortWrite     = errors.New("short write")
+      ErrUnexpectedEOF  = errors.New("unexpected EOF")
+  ) 
+
+Enables code like:
+
+  switch n, err := io.ReadAtLeast(r, buf, min); err {
+  case io.EOF:              // no bytes were read
+  case io.ErrUnexpectedEOF: // < min bytes were read
+  case io.ErrShortBuffer:   // min > len(buf)
+  default:                  // or case nil: n >= min
+  }
+
+* Context for errors with exported error types
+
+  type NumError struct {
+      Func string // the failing function (ParseBool, ParseInt, ParseUint, ParseFloat)
+      Num  string // the input
+      Err  error  // the reason the conversion failed (ErrRange, ErrSyntax)
+  }
+
+Error types provide context for an error
+
+Error types have to provide an Error() string function, so that can provide nicely formatted error messages
+
+Actions should leverage the context provided by the type's fields
+
+* 7 Common mistakes in Go and how to avoid them - Steve Francia
+
+Written a few Go packages, a static site generator provided examples for talk
+
+- not accepting interfaces
+- thinking of errors as strings - _see_previous_
+- requiring broad interfaces
+- methods vs functions
+- pointers vs values - _as_receivers/arguments_
+- not using io.Reader and io.Writer - _vs_passing_around_byte_arrays_
+- ignoring concurrent access - _see_next_
+
+Pointer/value args not usually for performance, instead: _are_you_modifying_the_receiver/argument_or_just_reading_it?_
+
+* Race Conditions, Mutexes, and Debugging Go - Jessie Frazelle (Docker)
+
+Nothing new if you've done any multi-threaded programming (e.g. in Java)
+
+I dislike emphasis on using locks to protect data structures from concurrent access
+
+- feels like _Java_without_syntactic_sugar_
+- also a flaw in _7_Common_mistakes_in_Go_and_how_to_avoid_them_
+
+What about _"share_memory_by_communicating;_don't_communicate_by_sharing_memory"_?
+
+* Cancelation and Context Plumbing - Sameer Ajmani (Google)
+
+Really insightful followup to a recent [[http://blog.golang.org/context][blog post]]
+
+Rationale for context plumbing pattern introduced by Google & some design decisions
+
+Tooling to try to retrofit context plumbing into their existing codebase
+
+- `gofmt` tool breaks down for automatic refactoring
+- `eg` tool is AST-based instead of pattern-based
+
+Antoine: "will we ever see the context plumbing pattern in a future release of Go"
+Sameer: "Rob Pike thought it should have been in version 1.0, that ship sailed, 2.0 is nowhere on the horizon"
+
+Examples of how Google is working around this in their codebase, mostly through use of closures
+
+* De-Thorning Package Management - Keith Rarick
+
+Author of `godep` - dependency management tool we use for a lot of projects
+
+Origins and evolution of `godep`, different ways to use it
+
+`godep` _should_only_be_used_in_applications_ *not* _in_libraries_
+
+Already started to remove it from some `Genghis` libraries, but a huge relief for me
+
+Go team at Google have a much hairier solution to dependency problem
+- don't believe they can solve this for the community
+
+* Everything You've Always Wanted to Know About Go Web Apps (But were afraid to ask) - Mark Bates
+
+Skewered every Go web framework in existence
+
+"What is Rails for Go?" - _packages_
+
+Package recommendations, work together through composition
+
+[[https://github.com/gin-gonic/gin][`gin` web framework]], includes [[https://github.com/julienschmidt/httprouter][`httprouter` ... uh ... HTTP router]]
+
+Will play with this for `Genghis` post-BFCM
